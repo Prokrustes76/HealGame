@@ -224,7 +224,6 @@ class Talent extends Ability {
         priest.talentPoints--
 
         if (this.name == 'Fortitude')       game.buffs.push('Fortitude')
-        if (this.name == 'Meditate')        priest.combatReg += 1/6
         if (this.name == 'Lesser Heal')     priest.spells.push(new Spell(0))
         if (this.name == 'Smite')           priest.spells.push(new Spell(1))
         if (this.name == 'Renew')           priest.spells.push(new Spell(2))
@@ -232,6 +231,7 @@ class Talent extends Ability {
         if (this.name == 'Holy Nova')       priest.spells.push(new Spell(4))
         if (this.name == 'Holy Shield')     priest.spells.push(new Spell(5))
         if (this.name == 'Serenity')        priest.spells.push(new Spell(6))
+        if (this.name == 'Meditate')        priest.combatReg        = 1/6 * this.level
         if (this.name == 'Atonement')       priest.atonement =        1/6 * this.level
         if (this.name == 'Concentration')   priest._spirit   = 50 +  20/3 * this.level
         if (this.name == 'Mental Strength') priest._power    = 40 +   2.5 * this.level
