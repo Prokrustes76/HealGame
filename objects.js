@@ -67,7 +67,7 @@ class Obj {
                 return `Adds a HoT to your Lesser Heal.`
             if (this.name == 'Holy Shield') 
                 return `This instant spell protects the hero from harm.`
-            if (this.name == 'Inspiration') 
+            if (this.name == 'Holy Armor') 
                 return `This buff increased all heroe's armor.`
             if (this.name == 'Binding Heal') 
                 return `Heals a hero and the priest for ${game.spells[3].power}.`

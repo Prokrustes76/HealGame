@@ -89,7 +89,10 @@ class Game {
     }
 
     pushNewEnemy() {
-        this.enemies.push(new Enemy(0))
+        let enemy = new Enemy(0)
+        enemy.checkStuff()
+        this.enemies.push(enemy)
+        
         this.tillNextEnemy *= .95
         this.nextEnemy += this.tillNextEnemy * 60
         Enemy.findPosition()
@@ -190,4 +193,13 @@ function loop() {
     requestAnimationFrame(loop)
 }
 
+function info() {
+    console.log('Damage:')
+    for (let h of game.heroes)
+        console.log(h.class + ':' + h.damDone)
+
+    console.log('Healing:')
+    for (let s of game.spells.filter(s => s.healed))
+        console.log(s.name + ':' + s.healed)
+}
 

@@ -87,6 +87,7 @@ class Ability extends Obj{
 
     execute() {
         if (this.name == 'Smite' && !game.enemies.length) return
+
         priest.manaCurr -= this.manaCost
         this.nextUse     = game.time + this.CD * 60
 
@@ -124,8 +125,14 @@ class Ability extends Obj{
             tics:   []
         }
 
-        for (let time = this.ticBetween * (1 - priest.haste/ 100); time <= this.ticAmount * this.ticBetween; time+= this.ticBetween* (1 - priest.haste/ 100))
-            obj.tics.push(Math.floor(time * 60 + game.time))
+        let step = this.ticBetween * (1 - priest.haste / 100)
+        let total = this.ticAmount * this.ticBetween
+        for (let time = step; time <= total; time+= step)
+            obj.tics.push({time: Math.floor(time * 60 + game.time),
+                           amount: this.ticPower})
+        if (total % step > 0)
+            obj.tics.push({time: Math.floor(total * 60 + game.time),
+                           amount: this.ticPower * (total % step) / step})
         
         this.target.HoTs.push(obj)
     }
@@ -142,9 +149,9 @@ class Ability extends Obj{
                     this.heal(game.heroes[i]) 
     }
 
-    heal(target, fromHoT) {
+    heal(target, amount = this.power) {
         if (!target.alive) return
-        let amount = (fromHoT ? this.ticPower : this.power) * rand() * (priest.power / 40)
+        amount *= rand() * (priest.power / 40)
         if (this.name == 'Smite') amount *= priest.atonement
 
         this.healed += amount
@@ -176,12 +183,12 @@ class Talent extends Ability {
         this.hasInfo    = true
         this.name       = ['Smite',       'Atonement',     'Fortitude',   'Meditate',      'Mental Strength', 'Word of Shadow', 'Inner Focus',
                            'Renew'      , 'Replenishment', 'Holy Nova',   'Concentration', 'Slow Enemy',      'Mending',        'Holy Ground',
-                           'Lesser Heal', 'Borrow Time',   'Sparkling',   'Holy Shield',   'Inspiration',     'Binding Heal',   'Serenity'][i]
+                           'Lesser Heal', 'Borrow Time',   'Sparkling',   'Holy Shield',   'Holy Armor',      'Binding Heal',   'Serenity'][i]
         this.column     = Math.floor(i / 7)
         this.row        = [0, 0, 1, 1, 2, 2, 2][i % 7]
-        this.image      = images[[23, 29, 17, 18, 27, 16, 20,
+        this.image      = images[[23, 29, 17, 18, 26, 16, 20,
                                   10, 30, 12, 31, 24, 19, 25,
-                                   8, 21, 28, 13, 26, 11, 22][i]]
+                                   8, 21, 28, 13, 27, 11, 22][i]]
         this.level      = 0
         this.maxLevel   = [1, 3, 4, 8, 10, 11, 15, 16, 18].includes(i) ? 3 : 1
         this.pos        = {
@@ -190,6 +197,41 @@ class Talent extends Ability {
             w:  50,
             h:  50
         }
+    }
+
+    static checkStats() { 
+        priest.spells = []
+        for (let t of priest.talents) {
+            if (t.name == 'Fortitude' && t.level)    game.buffs.push('Fortitude')
+            if (t.name == 'Holy Armor' && t.level)   game.buffs.push('Holy Armor')
+            if (t.name == 'Lesser Heal' && t.level)  priest.spells.push(game.spells[0])
+            if (t.name == 'Smite' && t.level)        priest.spells.push(game.spells[1])
+            if (t.name == 'Renew' && t.level)        priest.spells.push(game.spells[2])
+            if (t.name == 'Binding Heal' && t.level) priest.spells.push(game.spells[3])
+            if (t.name == 'Holy Nova' && t.level)    priest.spells.push(game.spells[4])
+            if (t.name == 'Holy Shield' && t.level)  priest.spells.push(game.spells[5])
+            if (t.name == 'Serenity' && t.level)     priest.spells.push(game.spells[6])
+            if (t.name == 'Meditate')                priest.combatReg =        1/6 * t.level || 0
+            if (t.name == 'Atonement')               priest.atonement =        1/3 * t.level || 0
+            if (t.name == 'Concentration')           priest._spirit   = 50 + (20/3 * t.level || 0)
+            if (t.name == 'Mental Strength')         priest._power    = 40 +  (2.5 * t.level || 0)
+            if (t.name == 'Slow Enemy')              priest.slowEnemy =          8 * t.level || 0
+            if (t.name == 'Borrow Time')             priest._haste =             8 * t.level || 0
+            if (t.name == 'Replenishment' && t.level) {
+                let renew = priest.spells.find(s => s.name == 'Renew')
+                renew.ticPower      = 25 + t.level
+                renew.power         = 15 * t.level
+            }
+            if (t.name == 'Sparkling' && t.level) {
+                let lesser = priest.spells.find(s => s.name == 'Lesser Heal')
+                lesser.ticAmount  = 3
+                lesser.ticBetween = 2
+                lesser.ticPower   = t.level * priest.spells[0].power / 15
+            }
+        }
+
+        priest.abilities = priest.spells
+        Spell.findPos()
     }
 
     isAvailable() {
@@ -223,36 +265,6 @@ class Talent extends Ability {
         this.level++
         priest.talentPoints--
 
-        if (this.name == 'Fortitude')       game.buffs.push('Fortitude')
-        if (this.name == 'Lesser Heal')     priest.spells.push(new Spell(0))
-        if (this.name == 'Smite')           priest.spells.push(new Spell(1))
-        if (this.name == 'Renew')           priest.spells.push(new Spell(2))
-        if (this.name == 'Binding Heal' )   priest.spells.push(new Spell(3))
-        if (this.name == 'Holy Nova')       priest.spells.push(new Spell(4))
-        if (this.name == 'Holy Shield')     priest.spells.push(new Spell(5))
-        if (this.name == 'Serenity')        priest.spells.push(new Spell(6))
-        if (this.name == 'Meditate')        priest.combatReg        = 1/6 * this.level
-        if (this.name == 'Atonement')       priest.atonement =        1/6 * this.level
-        if (this.name == 'Concentration')   priest._spirit   = 50 +  20/3 * this.level
-        if (this.name == 'Mental Strength') priest._power    = 40 +   2.5 * this.level
-        if (this.name == 'Slow Enemy')      priest.slowEnemy =          8 * this.level
-        if (this.name == 'Inspiration')     priest.inspiration =     10/3 * this.level
-        if (this.name == 'Borrow Time')     priest._haste =             8 * this.level
-
-        if (this.name == 'Replenishment') {
-            let renew = priest.spells.find(s => s.name == 'Renew')
-            renew.ticPower += 5
-            renew.power += 10
-        }
-        
-        if (this.name == 'Sparkling') {
-            let lesser = priest.spells.find(s => s.name == 'Lesser Heal')
-            lesser.ticAmount  = 3
-            lesser.ticBetween = 2
-            lesser.ticPower   = this.level * priest.spells[0].power / 20
-        }
-
-        priest.abilities = priest.spells
-        Spell.findPos()
+        Talent.checkStats()
     }
 }

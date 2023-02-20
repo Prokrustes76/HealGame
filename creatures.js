@@ -14,7 +14,9 @@ class Creature extends Obj {
     }
 
     makeStats() {
-        this.hpCurr = this.hpCurr || this._hpCurr
+        if (!this.alive) return
+
+        this.hpCurr = this._hpCurr
         this.hpFull = this._hpFull
         this.dam    = this._dam
         this.def    = this._defend
@@ -23,18 +25,21 @@ class Creature extends Obj {
         this.haste  = this._haste  
         this.threat = this._threat
 
+        if (this instanceof Enemy) {
+            this.haste -= priest.slowEnemy
+            return
+        }
+
         if (this.class == 'Priest') {
             this.manaCurr = this.manaCurr || this._manaCurr 
             this.manaFull = this._manaFull 
             this.spirit   = this._spirit   
             this.power    = this._power   
         }
-
         if (game.buffs.includes("Fortitude")) {
-            this.hpFull = this._hpFull + 40
+            this.hpFull += 40
+            this.hpCurr += 40
         }
-        if (this instanceof Enemy)
-            this.haste -= priest.slowEnemy
 
         if (priest.inspiration)
           this.rs = this._rs + (100 - this.rs) * priest.inspiration / 100
@@ -110,8 +115,8 @@ class Creature extends Obj {
 
     checkHoTs() {
         for (let HoT of this.HoTs)
-            if (HoT.tics[0] <= game.time) {
-                HoT.spell.heal(this, true)
+            if (HoT.tics[0].time <= game.time) {
+                HoT.spell.heal(this, HoT.tics[0].amount)
                 HoT.tics.splice(0, 1)
                 if (HoT.tics.length == 0) 
                     this.HoTs.splice(this.HoTs.indexOf(HoT), 1)
@@ -126,7 +131,7 @@ class Creature extends Obj {
         return this.crit >= rand(0, 100)
     }
 
-    isHurt(dam) {
+    isHurt(dam) { if (this instanceof Enemy) 
         this.damTaken += dam
         dam *= (1 - this.rs / 100)
 
@@ -142,28 +147,32 @@ class Creature extends Obj {
             }
         }
 
-        this.hpCurr -= dam
+        this._hpCurr -= dam
 
         if (this.hpCurr <= 0) 
             this.isDead()
         
+        this.checkStuff()
     }
 
     isDead() {
-        if (this.class == 'Priest')
-            game.running = false 
-        this.hpCurr = 0
-        this.alive  = false
-        this.HoTs   = []
+        this._hpCurr = this.hpCurr = 0
 
         if (this instanceof Enemy) {
             game.enemies.splice(game.enemies.indexOf(this), 1)
             game.createObjects()
             for (let h of game.heroes)
                 h.target = undefined
+            return
         }
 
-        else if (priest.isCasting >= 0 && priest.spell.target == this)
+        this.alive  = false
+        if (this.class == 'Priest')
+            game.running = false 
+
+        this.HoTs   = []
+
+        if (priest.isCasting >= 0 && priest.spell.target == this)
         priest.spellAborted()
     }
 
@@ -195,10 +204,10 @@ class Creature extends Obj {
         let diff = this.hpFull - this.hpCurr
         if (amount - diff > 0) {
             spell.overHeal += amount - diff
-            this.hpCurr = this.hpFull
+            this._hpCurr = this._hpFull
         }
         else
-            this.hpCurr += amount
+            this._hpCurr += amount
     }
 }
 
@@ -272,7 +281,9 @@ class Hero extends Creature {
 
     manaRegen() {
         let factor = game.time < this.nextFullReg ? this.combatReg : 1
-        this.manaCurr  = Math.min(this.manaFull, this.manaCurr + (this.spirit / 2) * factor)
+        this.manaCurr  += factor * this.spirit / 2
+        if (this.manaCurr > this.manaFull) 
+            this.manaCurr = this.manaFull
         this.nextRegen = game.time + 150
     }
 
